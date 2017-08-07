@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.kubernetes.io/qcloud-loadbalancer-clusterid: cls-8p2jnl9z
+    service.kubernetes.io/qcloud-loadbalancer-internal: "21186"
+    service.kubernetes.io/qcloud-loadbalancer-internal-subnetid: subnet-p9oq3uc1
+  labels:
+    component: elasticsearch
+    role: client
+  name: elasticsearch
+  namespace: default
+  selfLink: /api/v1/namespaces/default/services/elasticsearch
+  uid: 3535882b-7b42-11e7-aeeb-525400b20fsd
+spec:
+  clusterIP: 172.20.255.27
+  ports:
+  - name: http
+    nodePort: 30433
+    port: 9200
+    protocol: TCP
+    targetPort: 9200
+  selector:
+    component: elasticsearch
+  sessionAffinity: None
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.17.1.16

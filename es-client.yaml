@@ -1,7 +1,7 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: es-client
+  name: es2client
   labels:
     component: elasticsearch
     role: client
@@ -21,14 +21,14 @@ spec:
         securityContext:
           privileged: true
       containers:
-      - name: es-client
+      - name: es2client
         securityContext:
           privileged: false
           capabilities:
             add:
               - IPC_LOCK
               - SYS_RESOURCE
-        image: quay.io/pires/docker-elasticsearch-kubernetes:5.5.1
+        image: ccr.ccs.tencentyun.com/zhulux_sre/elasticsearch:latest
         imagePullPolicy: Always
         env:
         - name: NAMESPACE
@@ -59,6 +59,8 @@ spec:
         volumeMounts:
         - name: storage
           mountPath: /data
+      imagePullSecrets:
+      - name: qcloudregistrykey
       volumes:
           - emptyDir:
               medium: ""

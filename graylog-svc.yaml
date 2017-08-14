@@ -5,20 +5,25 @@ metadata:
     service.kubernetes.io/qcloud-loadbalancer-internal: "21186"
     service.kubernetes.io/qcloud-loadbalancer-internal-subnetid: subnet-p9oq3uc1
   labels:
-    component: elasticsearch
-    role: client
-  name: elasticsearch
+    component: graylog
+  name: graylog
   namespace: default
 spec:
-  clusterIP: 172.20.255.27
+  clusterIP: 172.20.255.33
   ports:
   - name: http
-    nodePort: 30433
-    port: 9200
+    port: 9000
+    targetPort: 9000
     protocol: TCP
-    targetPort: 9200
+  - name: apiport
+    port: 12900
+    protocol: TCP
+    targetPort: 12900
+  - name: tcpin
+    port: 1234
+    targetPort: 1234
+    protocol: TCP
   selector:
-    component: elasticsearch
-    role: client
+    component: graylog
   sessionAffinity: None
   type: LoadBalancer

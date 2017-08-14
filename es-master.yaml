@@ -40,7 +40,8 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: "CLUSTER_NAME"
-          value: "myesdb"
+          value: "graylog"
+          value: "graylog"
         - name: "NUMBER_OF_MASTERS"
           value: "2"
         - name: NODE_MASTER
@@ -63,6 +64,6 @@ spec:
       imagePullSecrets:
       - name: qcloudregistrykey
       volumes:
-          - emptyDir:
-              medium: ""
-            name: "storage"
+          - name: storage
+            hostPath:
+              path: /tmp

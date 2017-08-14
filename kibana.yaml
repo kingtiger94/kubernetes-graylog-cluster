@@ -20,7 +20,8 @@ spec:
         image: cfontes/kibana-xpack-less:5.5.0
         env:
         - name: "CLUSTER_NAME"
-          value: "myesdb"
+          value: "graylog"
+          value: "graylog"
         - name: SERVER_BASEPATH
           value: /api/v1/proxy/namespaces/default/services/kibana:5601
         - name: XPACK_SECURITY_ENABLED

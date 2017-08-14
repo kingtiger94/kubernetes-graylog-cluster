@@ -40,7 +40,8 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: "CLUSTER_NAME"
-          value: "myesdb"
+          value: "graylog"
+          value: "graylog"
         - name: NODE_MASTER
           value: "false"
         - name: NODE_INGEST
@@ -49,16 +50,19 @@ spec:
           value: "false"
         - name: "ES_JAVA_OPTS"
           value: "-Xms256m -Xmx256m"
+        - name: "MAX_LOCAL_STORAGE_NODES"
+          value: "5"
         ports:
         - containerPort: 9300
           name: transport
           protocol: TCP
         volumeMounts:
-        - name: storage
+        - name: nfs
           mountPath: /data
       imagePullSecrets:
       - name: qcloudregistrykey
       volumes:
-          - emptyDir:
-              medium: ""
-            name: "storage"
+      - name: nfs
+        nfs:
+            server: 172.17.255.16
+            path: "/"

@@ -40,7 +40,8 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: "CLUSTER_NAME"
-          value: "myesdb"
+          value: "graylog"
+          value: "graylog"
         - name: NODE_MASTER
           value: "false"
         - name: NODE_DATA

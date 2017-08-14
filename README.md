@@ -148,7 +148,8 @@ One should see something similar to the following:
 ```json
 {
   "name" : "es-client-3159607856-cj49h",
-  "cluster_name" : "myesdb",
+  "cluster_name" : "graylog",
+  "cluster_name" : "graylog",
   "cluster_uuid" : "m0jm8ASlSaKOS0wT52R5cA",
   "version" : {
     "number" : "5.5.1",
@@ -171,7 +172,8 @@ One should see something similar to the following:
 
 ```json
 {
-  "cluster_name" : "myesdb",
+  "cluster_name" : "graylog",
+  "cluster_name" : "graylog",
   "status" : "green",
   "timed_out" : false,
   "number_of_nodes" : 7,

@@ -13,7 +13,7 @@ spec:
   template:
     metadata:
       labels:
-      role: graylog-node
+        role: graylog-node
     spec:
       containers:
       - name: graylog

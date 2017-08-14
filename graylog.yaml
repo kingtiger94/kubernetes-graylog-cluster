@@ -20,8 +20,8 @@ spec:
         image: ccr.ccs.tencentyun.com/zhulux_sre/graylog:v2.3.0
         ports:
         - containerPort: 1234
-          name: udp
-          protocol: UDP
+          name: datain
+          protocol: TCP
         - containerPort: 9000
           name: graylog-api
           protocol: TCP

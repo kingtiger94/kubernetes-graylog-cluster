@@ -5,7 +5,7 @@ metadata:
     service.kubernetes.io/qcloud-loadbalancer-internal: "21186"
     service.kubernetes.io/qcloud-loadbalancer-internal-subnetid: subnet-p9oq3uc1
   labels:
-    component: graylog-node
+    role: graylog-node
   name: graylog-node
   namespace: default
 spec:
@@ -24,10 +24,6 @@ spec:
     targetPort: 1234
     protocol: TCP
   selector:
-    component: graylog-node
+    role: graylog-node
   sessionAffinity: None
   type: LoadBalancer
-#status:
-#  loadBalancer:
-#    ingress:
-#    - ip: 172.17.0.16

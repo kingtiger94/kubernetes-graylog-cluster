@@ -5,25 +5,35 @@ metadata:
     service.kubernetes.io/qcloud-loadbalancer-internal: "21186"
     service.kubernetes.io/qcloud-loadbalancer-internal-subnetid: subnet-p9oq3uc1
   labels:
+    component: graylog
     role: graylog-node
   name: graylog-node
-  namespace: default
+  namespace: devops
 spec:
   clusterIP: 172.20.255.34
   ports:
-  - name: http
-    port: 9000
-    targetPort: 9000
-    protocol: TCP
-  - name: apiport
-    port: 12900
-    protocol: TCP
-    targetPort: 12900
-  - name: tcpin
-    port: 1234
-    targetPort: 1234
-    protocol: TCP
+  - name: udpin
+    port: 12300
+    targetPort: 12300
+    protocol: UDP
+  - name: udpin1
+    port: 12301
+    targetPort: 12301
+    protocol: UDP
+  - name: udpin2
+    port: 12302
+    targetPort: 12302
+    protocol: UDP
+  - name: udpin3
+    port: 12303
+    targetPort: 12303
+    protocol: UDP
+  - name: udpin4
+    port: 12304
+    targetPort: 12304
+    protocol: UDP
   selector:
+    component: graylog
     role: graylog-node
   sessionAffinity: None
   type: LoadBalancer

@@ -8,7 +8,7 @@ metadata:
     component: elasticsearch
     role: client
   name: elasticsearch
-  namespace: default
+  namespace: devops
 spec:
   clusterIP: 172.20.255.27
   ports:

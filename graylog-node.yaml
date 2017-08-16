@@ -2,24 +2,27 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: graylog-node
-  namespace: default
+  namespace: devops
   labels:
+    component: graylog
     role: graylog-node
 spec:
-  replicas: 2
+  replicas: 3
   selector:
     matchLabels:
+      component: graylog
       role: graylog-node
   template:
     metadata:
       labels:
+        component: graylog
         role: graylog-node
     spec:
       containers:
       - name: graylog
         image: ccr.ccs.tencentyun.com/zhulux_sre/graylog:v2.3.0
         ports:
-        - containerPort: 1234
+        - containerPort: 12300
           name: udp
           protocol: UDP
         - containerPort: 9000
@@ -46,5 +49,7 @@ spec:
           value: "false"
         - name: "GRAYLOG_WEB_ENABLE"
           value: "false"
+        - name: "GRAYLOG_OUTPUT_BATCH_SIZE"
+          value: "5000"
       imagePullSecrets:
       - name: qcloudregistrykey

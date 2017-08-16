@@ -5,8 +5,9 @@ metadata:
   labels:
     component: elasticsearch
     role: data
+  namespace: devops
 spec:
-  replicas: 2
+  replicas: 3
   template:
     metadata:
       labels:
@@ -41,7 +42,6 @@ spec:
               fieldPath: metadata.name
         - name: "CLUSTER_NAME"
           value: "graylog"
-          value: "graylog"
         - name: NODE_MASTER
           value: "false"
         - name: NODE_INGEST
@@ -57,12 +57,12 @@ spec:
           name: transport
           protocol: TCP
         volumeMounts:
-        - name: nfs
+        - name: esdata
           mountPath: /data
       imagePullSecrets:
       - name: qcloudregistrykey
       volumes:
-      - name: nfs
-        nfs:
-            server: 172.17.255.16
-            path: "/"
+        - name: esdata
+          hostPath:
+            path: /data/esnode
+

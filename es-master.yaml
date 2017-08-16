@@ -5,6 +5,7 @@ metadata:
   labels:
     component: elasticsearch
     role: master
+  namespace: devops
 spec:
   replicas: 3
   template:
@@ -41,9 +42,8 @@ spec:
               fieldPath: metadata.name
         - name: "CLUSTER_NAME"
           value: "graylog"
-          value: "graylog"
         - name: "NUMBER_OF_MASTERS"
-          value: "2"
+          value: "3"
         - name: NODE_MASTER
           value: "true"
         - name: NODE_INGEST
@@ -66,4 +66,4 @@ spec:
       volumes:
           - name: storage
             hostPath:
-              path: /tmp
+              path: /data/esmaster

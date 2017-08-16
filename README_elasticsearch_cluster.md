@@ -1,5 +1,5 @@
-# kubernetes-graylog-cluster
-Quote pires/kubernetes-elasticsearch-cluster (Elasticsearch (5.5.1) cluster)
+# kubernetes-elasticsearch-cluster
+Elasticsearch (5.5.1) cluster on top of Kubernetes made easy.
 
 ### Table of Contents
 
@@ -54,59 +54,76 @@ Providing one's own version of [the images automatically built from this reposit
 ## Test
 
 ### Deploy
-一、创建es集群
-1. 创建es client service ，负责后端LB-9200 
-```kubectl create -f es-svc-qcloud-lb.yaml``
 
-2. 创建es discovery ，负载es 服务发现 9300端口
+```
 kubectl create -f es-discovery-svc.yaml
+kubectl create -f es-svc.yaml
+kubectl create -f es-master.yaml
+```
 
-3. 创建es-master deployment，负载索引查找，路由，维护集群信息
-```kubectl create -f es-master.yaml```
-
-
-4. 创建es-data deployment，负载存储索引数据，持久化存储（挂载Node上的/data/esnode目录）
-```kubectl create -f es-data.yaml```
-
-5. 创建es-client，负载前端访问，对外供客户端调用访问
+Wait until `es-master` deployment is provisioned, and
+```
 kubectl create -f es-client.yaml
+kubectl create -f es-data.yaml
+```
 
-OK，现在整个es集群已经运行起来了。下一步是创建mongodb
-Note：创建es 容器时，可能会出现 "su-exec: /elasticsearch/bin/elasticsearch: Text file busy"，等待一会，一会会重建成功.
+Wait for containers to be in the `Running` state and check one of the Elasticsearch master nodes logs:
+```
+$ kubectl get svc,deployment,pods
+NAME                          CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
+svc/elasticsearch             10.100.68.102   <pending>     9200:30536/TCP   2m
+svc/elasticsearch-discovery   10.100.98.9     <none>        9300/TCP         2m
+svc/kubernetes                10.100.0.1      <none>        443/TCP          14m
 
-二、创建mongodb节点
-1. 创建mongodb deployment，负责存储graylog的元数据、配置信息。持久化存储
-```kubectl create -f mongodb.yaml```
+NAME               DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+deploy/es-client   2         2         2            2           49s
+deploy/es-data     2         2         2            2           48s
+deploy/es-master   3         3         3            3           2m
 
-2. 创建 mongodb的svc，只对graylog提供访问
-```kubectl create -f mongodb-svc.yaml```
+NAME                            READY     STATUS    RESTARTS   AGE
+po/es-client-3159607856-cj49h   1/1       Running   0          49s
+po/es-client-3159607856-g54pg   1/1       Running   0          49s
+po/es-data-1222765614-1lzz6     1/1       Running   0          48s
+po/es-data-1222765614-j10lj     1/1       Running   0          48s
+po/es-master-3966308282-2qdbc   1/1       Running   0          2m
+po/es-master-3966308282-hd6zh   1/1       Running   0          2m
+po/es-master-3966308282-tvx67   1/1       Running   0          2m
+```
 
-三、创建graylog master节点
-1. 创建graylog  service，用于负载整个graylog 的api、web ui访问界面.
-```kubectl create -f graylog-svc.yaml```
-
-2. 创建graylog-master deploy节点
-```kubectl create -f graylog.yaml```
-
-
-四、创建graylog node（接收data source）节点
-1. 创建graylog-node deploy节点，负责主要的数据源输入的接收。与master共享一个mongo 实例
-```kubectl create -f graylog-node```
-
-2. 创建graylog-node 的service ，便于数据源的对外访问接口。
-```kubectl create -f graylog-node-svc.yaml```
-
-五、登陆web 界面
-1. 生产环境先对indices进行修改，点击system-indices
-Index shards：3
-Index replicas：1
-
-Tips：shards 根据你的es 节点来规划，这里是3个 es-data 节点，所以这里是shard是3.另外副本1个也可以。当其中两台节点损坏时，集群依然会提供服务。不会red。当节点都恢复时，会重建索引。会由yellow 变为green。注意：如果你的replicas 为0，那么坏掉1个节点，整个es集群会立马变成red。除非恢复那台坏的节点。不然就无法对外提供服务了。
-
-Example Error info：Failed to index [4] messages. Please check the index error log in your web interface for the reason. Error: One or more of the items in the Bulk request failed, check BulkResult.getItems() for more information
-
-👌，请开始你的表演！
-
+```
+$ kubectl logs po/es-master-3966308282-2qdbc
+[2017-07-31T10:13:04,506][INFO ][o.e.n.Node               ] [es-master-3966308282-2qdbc] initializing ...
+[2017-07-31T10:13:04,665][INFO ][o.e.e.NodeEnvironment    ] [es-master-3966308282-2qdbc] using [1] data paths, mounts [[/data (/dev/sda9)]], net usable_space [13.6gb], net total_space [15.5gb], spins? [possibly], types [ext4]
+[2017-07-31T10:13:04,666][INFO ][o.e.e.NodeEnvironment    ] [es-master-3966308282-2qdbc] heap size [247.5mb], compressed ordinary object pointers [true]
+[2017-07-31T10:13:04,669][INFO ][o.e.n.Node               ] [es-master-3966308282-2qdbc] node name [es-master-3966308282-2qdbc], node ID [FtuYCvAATJyXg6suftszIw]
+[2017-07-31T10:13:04,671][INFO ][o.e.n.Node               ] [es-master-3966308282-2qdbc] version[5.5.1], pid[20], build[19c13d0/2017-07-18T20:44:24.823Z], OS[Linux/4.12.2-coreos/amd64], JVM[Oracle Corporation/OpenJDK 64-Bit Server VM/1.8.0_131/25.131-b11]
+[2017-07-31T10:13:04,671][INFO ][o.e.n.Node               ] [es-master-3966308282-2qdbc] JVM arguments [-XX:+UseConcMarkSweepGC, -XX:CMSInitiatingOccupancyFraction=75, -XX:+UseCMSInitiatingOccupancyOnly, -XX:+DisableExplicitGC, -XX:+AlwaysPreTouch, -Xss1m, -Djava.awt.headless=true, -Dfile.encoding=UTF-8, -Djna.nosys=true, -Djdk.io.permissionsUseCanonicalPath=true, -Dio.netty.noUnsafe=true, -Dio.netty.noKeySetOptimization=true, -Dlog4j.shutdownHookEnabled=false, -Dlog4j2.disable.jmx=true, -Dlog4j.skipJansi=true, -XX:+HeapDumpOnOutOfMemoryError, -Xms256m, -Xmx256m, -Des.path.home=/elasticsearch]
+[2017-07-31T10:13:05,971][INFO ][o.e.p.PluginsService     ] [es-master-3966308282-2qdbc] loaded module [aggs-matrix-stats]
+[2017-07-31T10:13:05,971][INFO ][o.e.p.PluginsService     ] [es-master-3966308282-2qdbc] loaded module [ingest-common]
+[2017-07-31T10:13:05,971][INFO ][o.e.p.PluginsService     ] [es-master-3966308282-2qdbc] loaded module [lang-expression]
+[2017-07-31T10:13:05,972][INFO ][o.e.p.PluginsService     ] [es-master-3966308282-2qdbc] loaded module [lang-groovy]
+[2017-07-31T10:13:05,972][INFO ][o.e.p.PluginsService     ] [es-master-3966308282-2qdbc] loaded module [lang-mustache]
+[2017-07-31T10:13:05,972][INFO ][o.e.p.PluginsService     ] [es-master-3966308282-2qdbc] loaded module [lang-painless]
+[2017-07-31T10:13:05,973][INFO ][o.e.p.PluginsService     ] [es-master-3966308282-2qdbc] loaded module [parent-join]
+[2017-07-31T10:13:05,973][INFO ][o.e.p.PluginsService     ] [es-master-3966308282-2qdbc] loaded module [percolator]
+[2017-07-31T10:13:05,973][INFO ][o.e.p.PluginsService     ] [es-master-3966308282-2qdbc] loaded module [reindex]
+[2017-07-31T10:13:05,974][INFO ][o.e.p.PluginsService     ] [es-master-3966308282-2qdbc] loaded module [transport-netty3]
+[2017-07-31T10:13:05,974][INFO ][o.e.p.PluginsService     ] [es-master-3966308282-2qdbc] loaded module [transport-netty4]
+[2017-07-31T10:13:05,975][INFO ][o.e.p.PluginsService     ] [es-master-3966308282-2qdbc] no plugins loaded
+[2017-07-31T10:13:08,733][INFO ][o.e.d.DiscoveryModule    ] [es-master-3966308282-2qdbc] using discovery type [zen]
+[2017-07-31T10:13:09,613][INFO ][o.e.n.Node               ] [es-master-3966308282-2qdbc] initialized
+[2017-07-31T10:13:09,613][INFO ][o.e.n.Node               ] [es-master-3966308282-2qdbc] starting ...
+[2017-07-31T10:13:09,869][INFO ][o.e.t.TransportService   ] [es-master-3966308282-2qdbc] publish_address {10.244.23.2:9300}, bound_addresses {10.244.23.2:9300}
+[2017-07-31T10:13:09,898][INFO ][o.e.b.BootstrapChecks    ] [es-master-3966308282-2qdbc] bound or publishing to a non-loopback or non-link-local address, enforcing bootstrap checks
+[2017-07-31T10:13:12,978][WARN ][o.e.d.z.ZenDiscovery     ] [es-master-3966308282-2qdbc] not enough master nodes discovered during pinging (found [[Candidate{node={es-master-3966308282-2qdbc}{FtuYCvAATJyXg6suftszIw}{bTlVUi-QRd-8-ix42LvpwA}{10.244.23.2}{10.244.23.2:9300}, clusterStateVersion=-1}]], but needed [2]), pinging again
+[2017-07-31T10:13:15,980][WARN ][o.e.d.z.ZenDiscovery     ] [es-master-3966308282-2qdbc] not enough master nodes discovered during pinging (found [[Candidate{node={es-master-3966308282-2qdbc}{FtuYCvAATJyXg6suftszIw}{bTlVUi-QRd-8-ix42LvpwA}{10.244.23.2}{10.244.23.2:9300}, clusterStateVersion=-1}]], but needed [2]), pinging again
+[2017-07-31T10:13:19,125][INFO ][o.e.c.s.ClusterService   ] [es-master-3966308282-2qdbc] detected_master {es-master-3966308282-hd6zh}{ewftNOzOQy2elVEPoTnqIA}{YXHme-qySgG0QmAvr-pwkA}{10.244.21.3}{10.244.21.3:9300}, added {{es-master-3966308282-tvx67}{wAUf_fUGRam0pkS2lm_yeg}{PNhDfm1pQE26BMIsZ3EaXw}{10.244.16.2}{10.244.16.2:9300},{es-master-3966308282-hd6zh}{ewftNOzOQy2elVEPoTnqIA}{YXHme-qySgG0QmAvr-pwkA}{10.244.21.3}{10.244.21.3:9300},}, reason: zen-disco-receive(from master [master {es-master-3966308282-hd6zh}{ewftNOzOQy2elVEPoTnqIA}{YXHme-qySgG0QmAvr-pwkA}{10.244.21.3}{10.244.21.3:9300} committed version [3]])
+[2017-07-31T10:13:19,183][INFO ][o.e.n.Node               ] [es-master-3966308282-2qdbc] started
+[2017-07-31T10:14:29,497][INFO ][o.e.c.s.ClusterService   ] [es-master-3966308282-2qdbc] added {{es-client-3159607856-cj49h}{t_IDXER9S-eMzi9fMftZFQ}{iVlxbMVHQAye84oi2bjz-A}{10.244.23.3}{10.244.23.3:9300},}, reason: zen-disco-receive(from master [master {es-master-3966308282-hd6zh}{ewftNOzOQy2elVEPoTnqIA}{YXHme-qySgG0QmAvr-pwkA}{10.244.21.3}{10.244.21.3:9300} committed version [4]])
+[2017-07-31T10:14:29,703][INFO ][o.e.c.s.ClusterService   ] [es-master-3966308282-2qdbc] added {{es-data-1222765614-j10lj}{1ZPKoD2yTTm-ggL6kBGl1w}{-KB__GUTTaiGs1aeLl4ceg}{10.244.16.3}{10.244.16.3:9300},}, reason: zen-disco-receive(from master [master {es-master-3966308282-hd6zh}{ewftNOzOQy2elVEPoTnqIA}{YXHme-qySgG0QmAvr-pwkA}{10.244.21.3}{10.244.21.3:9300} committed version [5]])
+[2017-07-31T10:14:34,872][INFO ][o.e.c.s.ClusterService   ] [es-master-3966308282-2qdbc] added {{es-client-3159607856-g54pg}{QW3IbBR6Qkuu0qfsvBWukQ}{-pM_D-5_Rwuo9xb_gxiKnQ}{10.244.21.4}{10.244.21.4:9300},}, reason: zen-disco-receive(from master [master {es-master-3966308282-hd6zh}{ewftNOzOQy2elVEPoTnqIA}{YXHme-qySgG0QmAvr-pwkA}{10.244.21.3}{10.244.21.3:9300} committed version [6]])
+[2017-07-31T10:14:36,975][INFO ][o.e.c.s.ClusterService   ] [es-master-3966308282-2qdbc] added {{es-data-1222765614-1lzz6}{wtCzgKPMRLm4zut8qYi0Bg}{JHSDg3huQAu04OXiWO_6rA}{10.244.21.5}{10.244.21.5:9300},}, reason: zen-disco-receive(from master [master {es-master-3966308282-hd6zh}{ewftNOzOQy2elVEPoTnqIA}{YXHme-qySgG0QmAvr-pwkA}{10.244.21.3}{10.244.21.3:9300} committed version [7]])
+```
 
 As we can assert, the cluster is up and running. Easy, wasn't it?
 
@@ -115,7 +132,7 @@ As we can assert, the cluster is up and running. Easy, wasn't it?
 *Don't forget* that services in Kubernetes are only acessible from containers in the cluster. For different behavior one should [configure the creation of an external load-balancer](http://kubernetes.io/v1.1/docs/user-guide/services.html#type-loadbalancer). While it's supported within this example service descriptor, its usage is out of scope of this document, for now.
 
 ```
-$ kubectl get svc elasticsearch 
+$ kubectl get svc elasticsearch
 NAME            CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
 elasticsearch   10.100.68.102   <pending>     9200:30536/TCP   3m
 ```
@@ -224,15 +241,72 @@ The image used in this repo is very minimalist. However, one can install additio
   value: "repository-gcs,x-pack"
 ```
 
+<a id="curator">
+
+## Clean up with Curator
+
+Additionally, one can run a [CronJob](http://kubernetes.io/docs/user-guide/cron-jobs/) that will periodically run [Curator](https://github.com/elastic/curator) to clean up indices (or do other actions on the Elasticsearch cluster).
+
+```
+kubectl create -f es-curator-config.yaml
+kubectl create -f es-curator.yaml
+```
+
+Please, confirm the job has been created.
+
+```
+$ kubectl get cronjobs
+NAME      SCHEDULE    SUSPEND   ACTIVE    LAST-SCHEDULE
+curator   1 0 * * *   False     0         <none>
+```
+
+The job is configured to run once a day at _1 minute past midnight and delete indices that are older than 3 days_.
+
 **Notes**
 
 - One can change the schedule by editing the cron notation in `es-curator.yaml`.
 - One can change the action (e.g. delete older than 3 days) by editing the `es-curator-config.yaml`.
 - The definition of the `action_file.yaml` is quite self-explaining for simple set-ups. For more advanced configuration options, please consult the [Curator Documentation](https://www.elastic.co/guide/en/elasticsearch/client/curator/current/index.html).
 
+If one wants to remove the curator job, just run:
+
+```
+kubectl delete cronjob curator
+kubectl delete configmap curator-config
+```
 
 Various parameters of the cluster, including replica count and memory allocations, can be adjusted by editing the `helm-elasticsearch/values.yaml` file. For information about Helm, please consult the [complete Helm documentation](https://github.com/kubernetes/helm/blob/master/docs/index.md).
 
+<a id="kibana>
+
+## Kibana
+
+Additionally, one can also add Kibana to the mix. In order to do so, one must use a container image of Kibana without x-pack,
+as it's not supported by the Elasticsearch container images used in this repository.
+
+An image is already provided but one can build their own like follows:
+
+```
+FROM docker.elastic.co/kibana/kibana:5.5.1
+RUN bin/kibana-plugin remove x-pack
+```
+
+If ones does provide their own image, one must make sure to alter the following files before deploying:
+
+```
+kubectl create -f kibana.yaml
+kubectl create -f kibana-svc.yaml
+```
+
+Kibana will be available through service `kibana`, and one will be able to access it from within the cluster or
+proxy it through the Kubernetes API Server, as follows:
+
+```
+https://<API_SERVER_URL>/api/v1/proxy/namespaces/default/services/kibana:5601
+```
+
+One can also create an Ingress to expose the service publicly or simly use the service nodeport.
+In the case one proceeds to do so, one must change the environment variable `SERVER_BASEPATH` to the match their environment.
 
 ## FAQ
 

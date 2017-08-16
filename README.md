@@ -49,51 +49,64 @@ One can change this in the deployment descriptors available in this repository.
 
 ## Build images (optional)
 
-Providing one's own version of [the images automatically built from this repository](https://github.com/pires/docker-elasticsearch-kubernetes) will not be supported. This is an *optional* step. One has been warned.
+* elasticsearch 5.5.1：`https://github.com/aliasmee/docker-elasticsearch-kubernetes`
+* graylog 2.3.0: `https://github.com/aliasmee/graylog-docker`
+* mongodb 3: `https://github.com/aliasmee/mongo`
 
 ## Test
 
 ### Deploy
 一、创建es集群
 1. 创建es client service ，负责后端LB-9200 
+
 ```kubectl create -f es-svc-qcloud-lb.yaml``
 
 2. 创建es discovery ，负载es 服务发现 9300端口
-kubectl create -f es-discovery-svc.yaml
+
+```kubectl create -f es-discovery-svc.yaml```
 
 3. 创建es-master deployment，负载索引查找，路由，维护集群信息
+
 ```kubectl create -f es-master.yaml```
 
 
 4. 创建es-data deployment，负载存储索引数据，持久化存储（挂载Node上的/data/esnode目录）
+
 ```kubectl create -f es-data.yaml```
 
 5. 创建es-client，负载前端访问，对外供客户端调用访问
-kubectl create -f es-client.yaml
+
+```kubectl create -f es-client.yaml```
 
 OK，现在整个es集群已经运行起来了。下一步是创建mongodb
 Note：创建es 容器时，可能会出现 "su-exec: /elasticsearch/bin/elasticsearch: Text file busy"，等待一会，一会会重建成功.
 
 二、创建mongodb节点
 1. 创建mongodb deployment，负责存储graylog的元数据、配置信息。持久化存储
+
 ```kubectl create -f mongodb.yaml```
 
 2. 创建 mongodb的svc，只对graylog提供访问
+
 ```kubectl create -f mongodb-svc.yaml```
 
 三、创建graylog master节点
 1. 创建graylog  service，用于负载整个graylog 的api、web ui访问界面.
+
 ```kubectl create -f graylog-svc.yaml```
 
 2. 创建graylog-master deploy节点
+
 ```kubectl create -f graylog.yaml```
 
 
 四、创建graylog node（接收data source）节点
 1. 创建graylog-node deploy节点，负责主要的数据源输入的接收。与master共享一个mongo 实例
+
 ```kubectl create -f graylog-node```
 
 2. 创建graylog-node 的service ，便于数据源的对外访问接口。
+
 ```kubectl create -f graylog-node-svc.yaml```
 
 五、登陆web 界面
@@ -101,9 +114,9 @@ Note：创建es 容器时，可能会出现 "su-exec: /elasticsearch/bin/elastic
 Index shards：3
 Index replicas：1
 
-Tips：shards 根据你的es 节点来规划，这里是3个 es-data 节点，所以这里是shard是3.另外副本1个也可以。当其中两台节点损坏时，集群依然会提供服务。不会red。当节点都恢复时，会重建索引。会由yellow 变为green。注意：如果你的replicas 为0，那么坏掉1个节点，整个es集群会立马变成red。除非恢复那台坏的节点。不然就无法对外提供服务了。
+Tips：shards 根据你的es 节点来规划，这里是3个 es-data 节点，所以这里是shard设置为3.另外副本1个也可以。当其中两台节点损坏时，集群依然会提供服务。不会red。当节点都恢复时，会重建索引。会由yellow 变为green。注意：如果你的replicas 为0，那么坏掉1个节点，整个es集群会立马变成red。除非恢复那台坏的节点。不然就无法对外提供服务了。
 
-Example Error info：Failed to index [4] messages. Please check the index error log in your web interface for the reason. Error: One or more of the items in the Bulk request failed, check BulkResult.getItems() for more information
+Example graylog Error info：Failed to index [4] messages. Please check the index error log in your web interface for the reason. Error: One or more of the items in the Bulk request failed, check BulkResult.getItems() for more information
 
 👌，请开始你的表演！
 

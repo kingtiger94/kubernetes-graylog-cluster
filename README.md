@@ -1,5 +1,5 @@
 # kubernetes-graylog-cluster
-Quote pires/kubernetes-elasticsearch-cluster (Elasticsearch (5.5.1) cluster)
+Quote pires/kubernetes-elasticsearch-cluster (Elasticsearch (5.5.1) cluster), Build a multi-node, highly available graylog service
 
 ### Table of Contents
 
@@ -8,21 +8,26 @@ Quote pires/kubernetes-elasticsearch-cluster (Elasticsearch (5.5.1) cluster)
 * [Build-Images(optional)](#build-images)
 * [Test (deploying & accessing)](#test)
 * [Pod anti-affinity](#pod-anti-affinity)
-* [Deploying with Helm](#helm)
 * [Install plug-ins](#plugins)
-* [Clean up with Curator](#curator)
-* [Deploy Kibana](#kibana)
 * [FAQ](#faq)
 * [Troubleshooting](#troubleshooting)
 
-## Abstract
+## Architecture decomposition
 
 Elasticsearch best-practices recommend to separate nodes in three roles:
 * `Master` nodes - intended for clustering management only, no data, no HTTP API
 * `Client` nodes - intended for client usage, no data, with HTTP API
 * `Data` nodes - intended for storing and indexing data, no HTTP API
 
-Given this, I'm going to demonstrate how to provision a (near, as storage is still an issue) production grade scenario consisting of 3 master, 2 client and 2 data nodes.
+Graylog server cluster(In this case):
+* `graylog master` node - Mainly to provide Web Ui, user-friendly management, does not assume the function of data input
+* `graylog data` node - The main function is to be responsible for receiving the data and processing it and then storing it in elasticsearch, no Web ui
+
+Mongodb server cluster(In this case)
+* `mongodb server` node - storing meta information and configuration data and doesn’t need many resources(example:input、save search、node list...etc)
+
+In this case, Graylog has three data processing nodes and a master management node, in the data node front has a load balancing server (in this case, by the k8s service as LB). According to the official multi-node cluster construction, Mongodb needs to build mongo rs, but in this case, did not do so. Because K8s rs can be a perfect management mongodb, we only need to mongodb pod storage mount to the shared storage server can be, so Just a mongodb instance and a persistent store. The important part is the elasticsearch cluster, we used the best practice, namely data, client, management server, separate run. Perform their duties. They are through the 9300 port between the mutual discovery, the establishment of cluster relations.
+
 
 <a id="important-notes">
 
@@ -30,13 +35,12 @@ Given this, I'm going to demonstrate how to provision a (near, as storage is sti
 
 * Elasticsearch pods need for an init-container to run in privileged mode, so it can set some VM options. For that to happen, the `kubelet` should be running with args `--allow-privileged`, otherwise
 the init-container will fail to run.
+In other ways, you can also use ansible such a similar tool to batch modify k8s node kernel parameters.(example: vm.max_map_count)
+
 
 * By default, `ES_JAVA_OPTS` is set to `-Xms256m -Xmx256m`. This is a *very low* value but many users, i.e. `minikube` users, were having issues with pods getting killed because hosts were out of memory.
 One can change this in the deployment descriptors available in this repository.
 
-* As of the moment, Kubernetes pod descriptors use an `emptyDir` for storing data in each data node container. This is meant to be for the sake of simplicity and should be adapted according to one's storage needs.
-
-* The [stateful](stateful) directory contains an example which deploys the data pods as a `StatefulSet`. These use a `volumeClaimTemplates` to provision persistent storage for each pod.
 
 <a id="pre-requisites">
 
@@ -53,79 +57,83 @@ One can change this in the deployment descriptors available in this repository.
 * graylog 2.3.0: `https://github.com/aliasmee/graylog-docker`
 * mongodb 3: `https://github.com/aliasmee/mongo`
 
+
 ## Test
 
-### Deploy
-一、创建es集群
-1. 创建es client service ，负责后端LB-9200 
+### K8s Deploy
+#### Create elasticsearch cluster 
+1. create es client service ，Responsible for LB backend 9200 port
 
 ```kubectl create -f es-svc-qcloud-lb.yaml``
 
-2. 创建es discovery ，负载es 服务发现 9300端口
+2. create es discovery service ，Responsible for publishing es service discovery 9300 port
 
 ```kubectl create -f es-discovery-svc.yaml```
 
-3. 创建es-master deployment，负载索引查找，路由，维护集群信息
+3. create es-master deployment，Responsible for index finding, routing, and maintaining cluster information.Election master
 
 ```kubectl create -f es-master.yaml```
 
 
-4. 创建es-data deployment，负载存储索引数据，持久化存储（挂载Node上的/data/esnode目录）
+4. create es-data deployment，Responsible for storing index data, where the local disk is used to persist (mount the /data/esnode directory on Node)
 
 ```kubectl create -f es-data.yaml```
 
-5. 创建es-client，负载前端访问，对外供客户端调用访问
+5. create es-client，Responsible for the client to access es cluster entry, also provide api call.
 
 ```kubectl create -f es-client.yaml```
 
-OK，现在整个es集群已经运行起来了。下一步是创建mongodb
-Note：创建es 容器时，可能会出现 "su-exec: /elasticsearch/bin/elasticsearch: Text file busy"，等待一会，一会会重建成功.
+OK，Now the whole es cluster has been running up. The next step is to create mongodb
 
-二、创建mongodb节点
-1. 创建mongodb deployment，负责存储graylog的元数据、配置信息。持久化存储
+Tips：When creating an es cluster, some container states may appear in the following case: "su-exec: /elasticsearch/bin/elasticsearch: Text file busy" ，Do not worry, wait for a while
+
+#### Create mongodb service
+1. create mongodb deployment，esponsible for storing metadata and configuration information for graylog. Persistent storage（NFS）
 
 ```kubectl create -f mongodb.yaml```
 
-2. 创建 mongodb的svc，只对graylog提供访问
+2. create mongodb svc，just provide access to graylog
 
 ```kubectl create -f mongodb-svc.yaml```
 
-三、创建graylog master节点
-1. 创建graylog  service，用于负载整个graylog 的api、web ui访问界面.
+#### Create graylog master node
+1. create graylog  service，Used to be responsible for the entire graylog api, web ui access interface.
 
 ```kubectl create -f graylog-svc.yaml```
 
-2. 创建graylog-master deploy节点
+2. create graylog-master node
 
 ```kubectl create -f graylog.yaml```
 
 
-四、创建graylog node（接收data source）节点
-1. 创建graylog-node deploy节点，负责主要的数据源输入的接收。与master共享一个mongo 实例
+#### Create graylog node（receive data source）node
+1. create graylog-node deploy，Responsible for receiving the main data source input. Share a mongo instance with graylog master
 
 ```kubectl create -f graylog-node```
 
-2. 创建graylog-node 的service ，便于数据源的对外访问接口。
+2. create graylog-node service ，The input of the data source accesses the ip interface(Can open more ports according to actual needs.)
 
 ```kubectl create -f graylog-node-svc.yaml```
 
-五、登陆web 界面
-1. 生产环境先对indices进行修改，点击system-indices
+#### Login graylog's web interface
+`Here to do a little modification`
+1. click system-->indices,Modify as follows
+```
 Index shards：3
 Index replicas：1
+```
 
-Tips：shards 根据你的es 节点来规划，这里是3个 es-data 节点，所以这里是shard设置为3.另外副本1个也可以。当其中两台节点损坏时，集群依然会提供服务。不会red。当节点都恢复时，会重建索引。会由yellow 变为green。注意：如果你的replicas 为0，那么坏掉1个节点，整个es集群会立马变成red。除非恢复那台坏的节点。不然就无法对外提供服务了。
+Tips：shards According to your es node to plan, here is the three es-data node, so here is shard set to 3. And set up a replicas.
+When two of the nodes are damaged, the cluster will still provide services. Not red When the node is restored, the index is rebuilt. Will change from yellow to green. Note: If your replicas is 0, then the broken one node, the entire es cluster will immediately become red. Can not provide services, unless the restoration of that bad node.
 
 Example graylog Error info：Failed to index [4] messages. Please check the index error log in your web interface for the reason. Error: One or more of the items in the Bulk request failed, check BulkResult.getItems() for more information
 
-👌，请开始你的表演！
-
-
-As we can assert, the cluster is up and running. Easy, wasn't it?
+👌，Show time!
 
 ### Access the service
 
 *Don't forget* that services in Kubernetes are only acessible from containers in the cluster. For different behavior one should [configure the creation of an external load-balancer](http://kubernetes.io/v1.1/docs/user-guide/services.html#type-loadbalancer). While it's supported within this example service descriptor, its usage is out of scope of this document, for now.
+
 
 ```
 $ kubectl get svc elasticsearch 
@@ -216,17 +224,6 @@ spec:
   - (...)
 ```
 
-<a id="helm">
-
-## Deploying with Helm
-
-[Helm](https://github.com/kubernetes/helm) charts for a basic (non-stateful) ElasticSearch deployment are maintained at https://github.com/clockworksoul/helm-elasticsearch. With Helm properly installed and configured, standing up a complete cluster is almost trivial:
-
-```
-$ git clone git@github.com:clockworksoul/helm-elasticsearch.git
-$ helm install helm-elasticsearch
-```
-
 <a id="plugins">
 
 ## Install plug-ins
@@ -236,16 +233,6 @@ The image used in this repo is very minimalist. However, one can install additio
 - name: "ES_PLUGINS_INSTALL"
   value: "repository-gcs,x-pack"
 ```
-
-**Notes**
-
-- One can change the schedule by editing the cron notation in `es-curator.yaml`.
-- One can change the action (e.g. delete older than 3 days) by editing the `es-curator-config.yaml`.
-- The definition of the `action_file.yaml` is quite self-explaining for simple set-ups. For more advanced configuration options, please consult the [Curator Documentation](https://www.elastic.co/guide/en/elasticsearch/client/curator/current/index.html).
-
-
-Various parameters of the cluster, including replica count and memory allocations, can be adjusted by editing the `helm-elasticsearch/values.yaml` file. For information about Helm, please consult the [complete Helm documentation](https://github.com/kubernetes/helm/blob/master/docs/index.md).
-
 
 ## FAQ
 
